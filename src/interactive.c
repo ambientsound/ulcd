@@ -17,29 +17,26 @@ interactive_draw_test(struct ulcd_t *ulcd)
     t.point.x = 0;
     t.point.y = 0;
 
-    if (ulcd_display_on(ulcd)) {
-        return -1;
-    }
-    if (ulcd_touch_init(ulcd)) {
-        return -1;
-    }
-    if (ulcd_touch_reset(ulcd)) {
-        return -1;
+    if (ulcd_gfx_cls(ulcd) || ulcd_display_on(ulcd) || ulcd_touch_init(ulcd) || ulcd_touch_reset(ulcd)) {
+        return ulcd->error;
     }
 
     while(!quit) {
         ulcd_touch_get_event(ulcd, &t);
-        printf("%d\t%d\t%d\n", t.status, t.point.x, t.point.y);
-        if (p.x != t.point.x && p.y != t.point.y) {
-            ulcd_gfx_filled_circle(ulcd, &p, 30, 0x0000);
-            if (t.status == TOUCH_STATUS_PRESS || t.status == TOUCH_STATUS_MOVING) {
-                ulcd_gfx_filled_circle(ulcd, &(t.point), 30, 0xffff);
+        if (t.status == TOUCH_STATUS_PRESS || t.status == TOUCH_STATUS_MOVING) {
+            if (ulcd_gfx_filled_circle(ulcd, &(t.point), 10, 0xffff)) {
+                return ulcd->error;
             }
-            memcpy(&p, &(t.point), sizeof(struct point_t));
+        } else if (t.status == TOUCH_STATUS_RELEASE) {
+            if (ulcd_gfx_cls(ulcd)) {
+                return ulcd->error;
+            }
         }
+        memcpy(&p, &(t.point), sizeof(struct point_t));
+        usleep(10000);
     }
 
-    return 0;
+    return ERROK;
 }
 
 

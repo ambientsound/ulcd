@@ -28,12 +28,26 @@ print_syntax(void)
 {
     fprintf(stderr, "Usage: %s [options] command [parameters]\n", PACKAGE);
     fprintf(stderr, "Options:\n"
-        "  -d device    Serial device\n"
-        "  -b rate      Serial baud rate\n"
+        "  -d device    Specify serial device.\n"
+        "  -b rate      Specify serial baud rate.\n"
         );
-    fprintf(stderr, "Commands:\n"
+    fprintf(stderr, "System commands:\n"
+        "  reset\n"
+        "    Try to reset the device to a sane state.\n"
+        );
+    fprintf(stderr, "Serial commands:\n"
+        "  baudrate <110|300|600|1200|2400|4800|9600|19200|38400|57600|115200|500000>\n"
+        "    Set target baud rate.\n"
+        );
+    fprintf(stderr, "Graphics commands:\n"
+        "  on\n"
+        "    Turns the screen on with full contrast.\n"
+        "  off\n"
+        "    Turns the screen off.\n"
+        "  contrast <0-15>\n"
+        "    Sets the screen contrast. A value of 0 means off.\n"
         "  clear\n"
-        "    Clear the screen and reset parameters\n"
+        "    Clear the screen and reset parameters.\n"
         );
     fprintf(stderr, "Interactive commands:\n"
         "  drawtest\n"
@@ -41,24 +55,46 @@ print_syntax(void)
         );
 }
 
+char *
+get_param(int argc, char **argv, int s)
+{
+    if (s + optind >= argc) {
+        return NULL;
+    }
+    return argv[optind+s];
+}
+
 int
 main(int argc, char** argv)
 {
+    char *param;
     const char *cmd;
+    int verbose = 0;
     int retval = 0;
     int c;
-
-    signal(SIGINT, sig_interrupt);
+    param_t i;
+    long l;
 
     ulcd = ulcd_new();
-    ulcd->device = getenv("ULCD_DEVICE");
-    ulcd->baudrate = atol(getenv("ULCD_BAUDRATE"));
+    if ((param = getenv("ULCD_BAUD_RATE")) != NULL) {
+        if (ulcd_set_baud_rate(ulcd, atol(param))) {
+            fprintf(stderr, "Error setting initial baud rate: %s\n", ulcd->err);
+        }
+    }
+    if ((param = getenv("ULCD_DEVICE")) != NULL) {
+        strncpy(ulcd->device, param, STRBUFSIZE);
+    }
 
-    while ((c = getopt(argc, argv, "d:b:")) != -1) {
+    while ((c = getopt(argc, argv, "d:b:v")) != -1) {
         switch(c) {
+            case 'v':
+                verbose = 1;
+                break;
             case 'd':
-                ulcd->device = malloc(BUFSIZE);
                 strncpy(ulcd->device, optarg, BUFSIZE);
+                break;
+            case 'b':
+                ulcd_set_baud_rate(ulcd, atol(optarg));
                 break;
             case '?':
                 if (optopt == 'c') {
@@ -74,6 +110,11 @@ main(int argc, char** argv)
         }
     }
 
+    if (verbose) {
+        printf("Serial: %s\n", ulcd->device);
+        printf("Baud: %d, const %d\n", ulcd->baud_rate, ulcd->baud_const);
+    }
+
     if (optind >= argc) {
         fprintf(stderr, "%s: must specify a command.\n", PACKAGE);
         print_syntax();
@@ -82,24 +123,56 @@ main(int argc, char** argv)
     }
 
     if (ulcd_open_serial_device(ulcd)) {
-        fprintf(stderr, "Could not open serial device %s", ulcd->device);
+        fprintf(stderr, "Error %d: %s\n", ulcd->error, ulcd->err);
         ulcd_free(ulcd);
         return EXIT_FAILURE;
     }
     ulcd_set_serial_parameters(ulcd);
 
     cmd = argv[optind];
-    if (!(strcmp(cmd, "clear"))) {
-        retval = ulcd_gfx_cls(ulcd);
-    } else if (!(strcmp(cmd, "drawtest"))) {
-        retval = interactive_draw_test(ulcd);
+
+    do {
+        if (!(strcmp(cmd, "reset"))) {
+            ulcd_reset(ulcd);
+            fprintf(stderr, "%s\n", ulcd->err);
+        } else if (!(strcmp(cmd, "clear"))) {
+            retval = ulcd_gfx_cls(ulcd);
+        } else if (!(strcmp(cmd, "on"))) {
+            retval = ulcd_display_on(ulcd);
+        } else if (!(strcmp(cmd, "off"))) {
+            retval = ulcd_display_off(ulcd);
+        } else if (!(strcmp(cmd, "contrast"))) {
+            if (optind + 1 < argc) {
+                i = atoi(argv[optind+1]);
+                if (i >= 0 && i <= 15) {
+                    retval = ulcd_gfx_contrast(ulcd, i);
+                    break;
+                }
+            }
+            fprintf(stderr, "Contrast needs an integer value between 0 and 15.\n");
+            retval = 1;
+        } else if (!(strcmp(cmd, "baudrate"))) {
+            if (optind + 1 < argc) {
+                l = atol(argv[optind+1]);
+                retval = ulcd_set_baud_rate(ulcd, l);
+            }
+        } else if (!(strcmp(cmd, "drawtest"))) {
+            signal(SIGINT, sig_interrupt);
+            retval = interactive_draw_test(ulcd);
+        } else {
+            fprintf(stderr, "%s: command `%s' unrecognized.", PACKAGE, cmd);
+            print_syntax();
+            ulcd_free(ulcd);
+            return EXIT_FAILURE;
+        }
+    }
+    while (0);
+
+    if (retval != ERROK) {
+        fprintf(stderr, "Command `%s' failed: %s\n", cmd, ulcd->err);
     }
 
     ulcd_free(ulcd);
-
-    if (retval != 0) {
-        fprintf(stderr, "%s failed: error", cmd);
-    }
 
     return retval;
 }
