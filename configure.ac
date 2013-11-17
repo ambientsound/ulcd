@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([caso], [1.0], [kimtjen@gmail.com])
+AC_INIT([ulcd], [1.0], [kimtjen@gmail.com])
 AM_INIT_AUTOMAKE
 AC_CONFIG_SRCDIR([src/main.c])
 AC_CONFIG_HEADERS([src/config.h])

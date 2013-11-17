@@ -5,7 +5,7 @@
 #include <signal.h>
 #include <ulcd43.h>
 #include "config.h"
-#include "caso.h"
+#include "ulcd.h"
 
 #define BUFSIZE 1024
 

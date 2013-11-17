@@ -1,2 +1,2 @@
-bin_PROGRAMS = caso
-caso_SOURCES = main.c interactive.c caso.h
+bin_PROGRAMS = ulcd
+ulcd_SOURCES = main.c interactive.c ulcd.h
