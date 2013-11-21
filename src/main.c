@@ -42,6 +42,10 @@ print_syntax(void)
         "  baudrate <110|300|600|1200|2400|4800|9600|19200|38400|57600|115200|500000>\n"
         "    Set target baud rate.\n"
         );
+    fprintf(stderr, "System commands:\n"
+        "  version\n"
+        "    Check device model, SPE version and PmmC version.\n"
+        );
     fprintf(stderr, "Graphics commands:\n"
         "  on\n"
         "    Turns the screen on with full contrast.\n"
@@ -105,6 +109,12 @@ exec_cmd(int argc, char **argv)
         }
         return ulcd_error(ulcd, EXIT_FAILURE, "needs an integer value.");
 
+    } else if (!(strcmp(cmd, "version"))) {
+        if (!ulcd_get_info(ulcd)) {
+            printf("%s SPE=%d PmmC=%d\n", ulcd->model, ulcd->spe_version, ulcd->pmmc_version);
+        }
+        return ulcd->error;
+
     } else if (!(strcmp(cmd, "drawtest"))) {
         signal(SIGINT, sig_interrupt);
         return interactive_draw_test(ulcd);
@@ -145,7 +155,9 @@ main(int argc, char** argv)
                 strncpy(ulcd->device, optarg, BUFSIZE);
                 break;
             case 'b':
-                ulcd_set_baud_rate(ulcd, atol(optarg));
+                if (ulcd_set_baud_rate(ulcd, atol(optarg))) {
+                    fprintf(stderr, "Error setting initial baud rate: %s\n", ulcd->err);
+                }
                 break;
             case '?':
                 if (optopt == 'c') {
