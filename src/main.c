@@ -56,6 +56,12 @@ print_syntax(void)
         "  clear\n"
         "    Clear the screen and reset parameters.\n"
         );
+    fprintf(stderr, "Text commands:\n"
+        "  textreset\n"
+        "    Sets the text parameters to sane default values.\n"
+        "  write <string>\n"
+        "    Writes the specified string to the display.\n"
+        );
     fprintf(stderr, "Interactive commands:\n"
         "  drawtest\n"
         "    Start an interactive drawing program.\n"
@@ -74,6 +80,7 @@ get_param(int argc, char **argv, int s)
 int
 exec_cmd(int argc, char **argv)
 {
+    char line[1024];
     const char *cmd;
     int r = ERROK;
     param_t i;
@@ -108,6 +115,16 @@ exec_cmd(int argc, char **argv)
             return ulcd_set_baud_rate(ulcd, atol(argv[1]));
         }
         return ulcd_error(ulcd, EXIT_FAILURE, "needs an integer value.");
+
+    } else if (!(strcmp(cmd, "textreset"))) {
+        return ulcd_txt_reset(ulcd);
+
+    } else if (!(strcmp(cmd, "write"))) {
+        strncpy(line, argv[1], 1022);
+        l = strlen(line);
+        line[l] = '\n';
+        line[l+1] = '\0';
+        return ulcd_txt_putstr(ulcd, line, NULL);
 
     } else if (!(strcmp(cmd, "version"))) {
         if (!ulcd_get_info(ulcd)) {
